@@ -1,0 +1,369 @@
+# Name: Mishaal Ghumman
+# Course: Object Oriented Programming
+# Date: July 23, 2024 - August 1, 2024
+
+import random
+import string
+import tkinter as tk
+from tkinter import scrolledtext, messagebox
+
+
+# These imports are mandatory for the GUI(tkinter) to work. Random to aid in encryption. String import to aid in
+# validating user input and text. Scroll text and message for the user to see the results and inputted word/phrase
+
+# Store the user's text. And returns the text as a string
+class user_Text:
+    def __init__(self, text):
+        self._text = text
+
+    def __str__(self):
+        return self._text
+
+
+# The substitution cipher starts by rearranging the english alphabet then generates the key
+def key_Generation(alphabet):
+    shuffled_alphabet = list(alphabet)
+    random.shuffle(shuffled_alphabet)
+    return dict(zip(alphabet, shuffled_alphabet))
+
+
+# Takes in the input for m the user processes it with the keys taking in the lowercase and uppercase letters
+
+def processes_Text(text, lower_key, upper_key):
+    return ''.join(lower_key.get(char, upper_key.get(char, char)) for char in text)
+
+
+#
+class cipher_Substitution:
+    def __init__(self):
+        self.uppercase_Value = key_Generation(string.ascii_uppercase)
+        self.lowercase_Value = key_Generation(string.ascii_lowercase)
+
+    # Encrypts the users input into an encrypted version
+    def encrypt(self, plaintext):
+        return processes_Text(plaintext, self.lowercase_Value, self.uppercase_Value)
+
+
+# Caesar Cipher Class begins here. A shift of 3 is used by default, and a helper is defined to shift characters
+# individually, then a character is checked to see if it is a letter or not. Then modulo 26 is used to shift to loop
+# or wrap around the whole alphabet.
+def processing_Text(text, shift):
+    def shift_Char(char):
+        if char.isalpha():
+            base = ord('a') if char.islower() else ord('A')
+            return chr((ord(char) - base + shift) % 26 + base)
+        return char
+
+    return ''.join(shift_Char(char) for char in text)
+
+
+# Start the caesar cipher with creating a shift of 3. And encrypting the user's text wit the previous stated value of 3
+class cipher_Caesar:
+    def __init__(self, shift=3):
+        self._shift = shift
+
+    # Here the user's input is encrypted and shifted by the chosen shift value for ceaser cipher
+
+    def encrypt(self, plaintext):
+        return processing_Text(plaintext, self._shift)
+
+
+# Now conversion of the text to a lowercase and replaced wit chosen letters c and r. Then non-alphabetic characters
+# are removed. After that to avoid duplication of single letters, code will replace repeated with a different letter(x);
+# in this case the letter is x. Finally, when the text has an odd number of letters, the different letter will make it
+# an even number of characters.
+def text_Pre_Encrypted(text):
+    text = text.lower().replace('c', 'r')
+    processed_text = [char for char in text if char.isalpha()]
+    processed_text = [char if i == 0 or processed_text[i - 1] != char else 'x' for i, char in
+                      enumerate(processed_text)]
+    if len(processed_text) % 2 != 0:
+        processed_text.append('x')
+    return processed_text
+
+
+# Playfair Cipher Class
+# Initialize the cipher with a secret. The secret is converted to lowercase
+# and 'x' is replaced by 'y' to fit the Playfair cipher's requirements.
+class cipher_Playfair:
+    def __init__(self, secret="secret"):
+        self.secret = secret.lower().replace('x', 'y')
+        self._table = self._create_table()
+
+    def _create_table(self):
+        alphabet = "abcdefghiklmnopqrstuvwxyz"
+        table = []
+        used = set()
+        for char in self.secret:
+            if char not in used and char in alphabet:
+                table.append(char)
+                used.add(char)
+        table.extend(char for char in alphabet if char not in used)
+        return [table[i:i + 5] for i in range(0, 25, 5)]
+
+    def _find_position(self, char):
+        for r, row in enumerate(self._table):
+            if char in row:
+                return r, row.index(char)
+        raise ValueError(f"Character {char} not in table")
+
+    def _encrypt_pair(self, char1, char2):
+        r1, c1 = self._find_position(char1)
+        r2, c2 = self._find_position(char2)
+        if r1 == r2:
+            return self._table[r1][(c1 + 1) % 5] + self._table[r2][(c2 + 1) % 5]
+        elif c1 == c2:
+            return self._table[(r1 + 1) % 5][c1] + self._table[(c2 + 1) % 5][c2]
+        else:
+            return self._table[r1][c2] + self._table[r2][c1]
+
+    def encrypt(self, plaintext):
+        processed_text = text_Pre_Encrypted(plaintext)
+        return ''.join(
+            self._encrypt_pair(processed_text[i], processed_text[i + 1]) for i in range(0, len(processed_text), 2))
+
+
+# Transposition Cipher Class inputted text is encrypted by using a key. Remove all spaces from the input text
+# to avoid issues with formatting. And make the text into a 5x5 matrix.
+
+def process_User_Text(text, key):
+    text = text.replace(" ", "")
+    ciphertext = [''] * key
+    for col in range(key):
+        pointer = col
+        while pointer < len(text):
+            ciphertext[col] += text[pointer]
+            pointer += key
+    return ''.join(ciphertext)
+
+
+# Transposition Cipher Class is responsible for encrypting the text with transposition technique by using a key
+class cipher_Transposition:
+    def __init__(self, key=2):
+        self._key = key
+
+    #Encrytion and error handling
+    def encrypt(self, plaintext):
+        if not plaintext.strip():
+            raise ValueError("Text cannot be empty or contain non-alphabet characters.")
+        return process_User_Text(plaintext, self._key)
+
+
+# Product Cipher Class where substitution, caesar, and transposition are used to be combined as a product cipher
+class cipher_Product:
+    def __init__(self):
+        self._ciphers = [cipher_Substitution(), cipher_Transposition(), cipher_Caesar()]
+
+    def encrypt(self, plaintext):
+        for cipher in self._ciphers:
+            plaintext = cipher.encrypt(plaintext)
+        return plaintext
+
+
+# RSA encryption starting from here. Prime number generator, number check and greatest common divisor function
+def prime_Check(n):
+    if n <= 1:
+        return False
+    if n <= 3:
+        return True
+    if n % 2 == 0 or n % 3 == 0:
+        return False
+    i = 5
+    while i * i <= n:
+        if n % i == 0 or n % (i + 2) == 0:
+            return False
+        i += 6
+    return True
+
+
+def prime_Number_Generator():
+    num = random.randint(50, 100)
+    while not prime_Check(num):
+        num += 1
+    return num
+
+
+def greatest_Common_Divisor(a, b):
+    while b:
+        a, b = b, a % b
+    return a
+
+
+class cipher_RSA:
+    def __init__(self):
+        self._p = prime_Number_Generator()
+        self._q = prime_Number_Generator()
+        self._n = self._p * self._q
+        self._e = self.locating_e()
+        self._d = self.locating_d()
+
+    # To use the RSA cipher, prime numbers must be generated since this practice of encryption is done with the
+    # multiplication of prime numbers multiplying them to generate a public key. But for the private key, it is made one
+    # public and one private exponent. This next block of code is computing a private key and public key.lso check
+    # if the generated numbers are prime.
+
+    def locating_e(self):
+        phi = (self._p - 1) * (self._q - 1)
+        e = random.randint(2, phi - 1)
+        while greatest_Common_Divisor(e, phi) != 1:
+            e = random.randint(2, phi - 1)
+        return e
+
+    def locating_d(self):
+        phi = (self._p - 1) * (self._q - 1)
+        return pow(self._e, -1, phi)
+
+    # This method uses the users inputted a text and converts it to values that can be used to encrypt the text with an
+    # RSA cipher. Then return the encrypted values as a superheated string of numbers with spaces between them
+    def encrypt(self, plaintext):
+        try:
+            plaintext = [ord(char) for char in plaintext]
+            ciphertext = [pow(char, self._e, self._n) for char in plaintext]
+            return ' '.join(map(str, ciphertext))
+        except Exception as e:
+            raise RuntimeError(" Failed to encrypt plaintext with RSA please try again.") from e
+
+
+# This object is used to create the GUI and give its title as well as set aesthetics for the GUI
+class applications_GUI:
+    def __init__(self, point):
+        self.root = point
+        self.root.title("Multiple Cipher Encryption Program")
+
+        # Personally, dark mode applications look far superior to light mode or other themed applications,
+        # therefore, this project has a dark mode colour set from the python tkinter library to receive full
+        # marks in the GUI section of this project
+        self.button_color = "#000000"
+        self.background_color = "#000000"
+        self.foreground_color = "#e0e0e0"
+        self.stop_button_color = "#f44336"
+        self.encrypt_button_color = "#4CAF50"
+        self.foreground_button_color = "#ffffff"
+
+        point.configure(bg=self.background_color)
+
+        # The drop-down menus for the ciphers and the names for them with their corresponding classes
+        self._ciphers = \
+            {
+                "Cipher choice RSA": cipher_RSA(),
+                "Cipher choice Caesar": cipher_Caesar(),
+                "Cipher choice Product": cipher_Product(),
+                "Cipher choice Playfair": cipher_Playfair(),
+                "Cipher choice Substitution": cipher_Substitution(),
+                "Cipher choice Transposition": cipher_Transposition()
+            }
+        # The Next segment of code is meant to list and store original user messages and encrypted messages as well
+        # as encryption methods used
+        self.methods_used = []
+        self.original_user_texts = []
+        self.encrypted_user_texts = []
+
+        # Set up the main frame
+        self._main_frame = tk.Frame(point, bg=self.background_color)
+        self._main_frame.pack(pady=20)
+
+        # Instructions for the user
+        self._instruction_label = tk.Label(
+            self._main_frame,
+            text="Click the drop-down menu for ciphers and then press encrypt for results. Or stop to see all results.",
+            bg=self.background_color,
+            fg=self.foreground_color,
+            font=("Comfortaa", 20)
+        )
+        self._instruction_label.pack(pady=10)
+
+        # Set up the frame for the dropdown menu
+        self._dropdown_frame = tk.Frame(self._main_frame, bg=self.background_color)
+        self._dropdown_frame.pack(pady=20)
+
+        # Dropdown menu for selecting cipher
+        self._cipher_var = tk.StringVar(point)
+        self._cipher_var.set("Cipher choice Substitution")
+        self._cipher_menu = tk.OptionMenu(self._dropdown_frame, self._cipher_var, *self._ciphers.keys())
+        self._cipher_menu.config(bg=self.button_color, fg=self.foreground_color, font=("Comfortaa", 15),
+                                 highlightbackground=self.background_color, highlightcolor=self.background_color)
+        self._cipher_menu.pack()
+
+        # Text entry widget for user to input plaintext
+        self._text_entry = tk.Entry(point, width=50, bg=self.button_color, fg=self.foreground_color,
+                                    font=("Comfortaa", 15))
+        self._text_entry.pack(pady=10)
+
+        # Frame for buttons
+        self._button_frame = tk.Frame(point, bg=self.background_color)
+        self._button_frame.pack(pady=10)
+
+        # Button to trigger encryption
+        self._encrypt_button = tk.Button(self._button_frame, text="Encrypt", command=self.user_message_encryption,
+                                         bg=self.encrypt_button_color, fg=self.foreground_button_color,
+                                         font=("Comfortaa", 15))
+        self._encrypt_button.pack(side=tk.LEFT, padx=10)
+
+        # Button to stop the program and show summary
+        self._stop_button = tk.Button(self._button_frame, text="Stop", command=self.stop_button_function,
+                                      bg=self.stop_button_color, fg=self.foreground_button_color,
+                                      font=("Comfortaa", 15))
+        self._stop_button.pack(side=tk.LEFT, padx=10)
+
+        # Scrolled text area to display results
+        self._scrolled_text = scrolledtext.ScrolledText(point, width=80, height=20, bg=self.background_color,
+                                                        fg=self.foreground_color,
+                                                        font=("Comfortaa", 15))
+        self._scrolled_text.pack(pady=10)
+
+    def user_message_encryption(self):
+        user_cipher_choice = self._cipher_var.get()
+        user_cipher = self._ciphers[user_cipher_choice]
+        original_text = self._text_entry.get()
+
+        # Check for invalid characters and show an error message if any are found
+        if any(char not in string.ascii_letters + " " for char in original_text):
+            messagebox.showerror("Error Warning",
+                                 "This program only supports letters and spaces. No numbers or special characters allowed.")
+            return
+
+        if not original_text.strip():
+            messagebox.showinfo("Error Warning",
+                                "Text cannot be empty or contain non-alphabet characters.")
+            return
+
+        try:
+            # Keep track of the original text, encrypted text, and the encryption method used
+            encrypted_text = user_cipher.encrypt(original_text)
+            self.original_user_texts.append(user_Text(original_text))
+            self.encrypted_user_texts.append(user_Text(encrypted_text))
+            self.methods_used.append(user_cipher_choice)
+            self.results_display_to_user()
+        except Exception as e:
+            messagebox.showerror("Error", f"Encryption failed: {e}")
+
+    # These functions are used to create the GUI and give its title as well as set aesthetics for the GUI
+    def stop_button_function(self):
+        if self.original_user_texts and self.encrypted_user_texts:
+            results = "Application Results:\n\n"
+            for i in range(len(self.original_user_texts)):
+                results += \
+                    (
+                        f"Your results of {i + 1} attempt:\n"
+                        f"Original user text: {self.original_user_texts[i]}\n"
+                        f"The Encryption method used: {self.methods_used[i]}\n"
+                        f"The encrypted version: {self.encrypted_user_texts[i]}\n\n"
+                    )
+            messagebox.showinfo("Your results", results)
+        self.root.destroy()
+
+    # These functions are used to display the results in the GUI
+    def results_display_to_user(self):
+        self._scrolled_text.insert(tk.END, f"The encrypted Text: {self.encrypted_user_texts[-1]}\n")
+        self._scrolled_text.insert(tk.END, f"The original Text: {self._text_entry.get()}\n")
+
+
+# These calls the main function to initiate the GUI and run the program
+if __name__ == "__main__":
+    root = tk.Tk()
+    gui = applications_GUI(root)
+    root.mainloop()
+
+# This starts the GUI wind window made and starts it. Also starts the mandatory Tkinter loop
+# End of the program.
+
